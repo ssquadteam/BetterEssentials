@@ -648,6 +648,20 @@ public abstract class UserData extends PlayerExtension implements IConf {
         config.save();
     }
 
+    public List<Long> getMediaShoutTimestamps() {
+        return holder.timestamps().mediaShouts();
+    }
+
+    public void setMediaShoutTimestamps(final List<Long> timestamps) {
+        holder.timestamps().mediaShouts(timestamps);
+        config.save();
+    }
+
+    public void addMediaShoutTimestamp(final long timestamp) {
+        holder.timestamps().mediaShouts().add(timestamp);
+        config.save();
+    }
+
     public List<CommandCooldown> getCooldownsList() {
         return holder.timestamps().commandCooldowns();
     }
