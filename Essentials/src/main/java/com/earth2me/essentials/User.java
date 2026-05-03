@@ -134,6 +134,9 @@ public class User extends UserData implements Comparable<User>, IMessageRecipien
 
     @Override
     public boolean isAuthorized(final IEssentialsCommand cmd, final String permissionPrefix) {
+        if (cmd.getName().equals("shout") && isAuthorized(permissionPrefix + "broadcast")) {
+            return true;
+        }
         return isAuthorized(permissionPrefix + (cmd.getName().equals("r") ? "msg" : cmd.getName()));
     }
 

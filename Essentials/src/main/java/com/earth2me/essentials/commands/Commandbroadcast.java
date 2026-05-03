@@ -3,6 +3,7 @@ package com.earth2me.essentials.commands;
 import com.earth2me.essentials.CommandSource;
 import com.earth2me.essentials.adventure.AdventureUtil;
 import com.earth2me.essentials.utils.FormatUtil;
+import net.ess3.api.IEssentials;
 import org.bukkit.Server;
 
 public class Commandbroadcast extends EssentialsCommand {
@@ -16,9 +17,13 @@ public class Commandbroadcast extends EssentialsCommand {
             throw new NotEnoughArgumentsException();
         }
 
-        final String message = FormatUtil.replaceFormat(getFinalArg(args, 0)).replace("\\n", "\n");
+        broadcast(ess, getFinalArg(args, 0), sender.getDisplayName());
+    }
+
+    static void broadcast(final IEssentials ess, final String rawMessage, final String displayName) {
+        final String message = FormatUtil.replaceFormat(rawMessage).replace("\\n", "\n");
         ess.broadcastTl("broadcast",
                 AdventureUtil.parsed(ess.getAdventureFacet().legacyToMiniWithUrls(ess.getAdventureFacet().escapeTags(message))),
-                sender.getDisplayName());
+                displayName);
     }
 }

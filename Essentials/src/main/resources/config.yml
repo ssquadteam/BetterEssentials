@@ -33,6 +33,11 @@ ops-name-color: '4'
 # Players with 'essentials.nick.hideprefix' will not be prefixed with the character(s).
 nickname-prefix: '~'
 
+# Redis powers FyreSMP-specific cross-server Essentials features. Put the Redis URI in credentials.yml.
+redis:
+  enabled: true
+  key-prefix: 'essentials:'
+
 # The maximum length allowed in nicknames. The nickname prefix is not included in this.
 max-nick-length: 16
 

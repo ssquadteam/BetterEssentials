@@ -39,6 +39,10 @@ import com.earth2me.essentials.items.LegacyItemDb;
 import com.earth2me.essentials.metrics.MetricsWrapper;
 import com.earth2me.essentials.perm.PermissionsDefaults;
 import com.earth2me.essentials.perm.PermissionsHandler;
+import com.earth2me.essentials.redis.EssentialsRedisConfig;
+import com.earth2me.essentials.redis.RedisManager;
+import com.earth2me.essentials.redis.RedisShoutLimitStore;
+import com.earth2me.essentials.redis.ShoutLimitStore;
 import com.earth2me.essentials.signs.SignBlockListener;
 import com.earth2me.essentials.signs.SignEntityListener;
 import com.earth2me.essentials.signs.SignPlayerListener;
@@ -137,6 +141,7 @@ import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -190,6 +195,8 @@ public class Essentials extends JavaPlugin implements net.ess3.api.IEssentials {
     private transient RandomTeleport randomTeleport;
     private transient UpdateChecker updateChecker;
     private transient AdventureFacet adventureFacet;
+    private transient RedisManager redisManager;
+    private transient ShoutLimitStore shoutLimitStore;
 
     static {
         EconomyLayers.init();
@@ -277,6 +284,7 @@ public class Essentials extends JavaPlugin implements net.ess3.api.IEssentials {
             confList = new ArrayList<>();
             settings = new Settings(this);
             confList.add(settings);
+            saveResourceIfMissing("credentials.yml");
             execTimer.mark("Settings");
 
             upgrade.preModules();
@@ -585,6 +593,7 @@ public class Essentials extends JavaPlugin implements net.ess3.api.IEssentials {
         if (backup != null) {
             backup.stopTask();
         }
+        closeRedisServices();
 
         if (!TESTING) {
             this.getPermissionsHandler().unregisterContexts();
@@ -607,6 +616,7 @@ public class Essentials extends JavaPlugin implements net.ess3.api.IEssentials {
             iConf.reloadConfig();
             execTimer.mark("Reload(" + iConf.getClass().getSimpleName() + ")");
         }
+        reloadRedisServices();
 
         i18n.updateLocale(settings.getLocale());
         for (final String commandName : this.getDescription().getCommands().keySet()) {
@@ -621,6 +631,54 @@ public class Essentials extends JavaPlugin implements net.ess3.api.IEssentials {
         registerListeners(pm);
 
         initAdventureFacet();
+    }
+
+    public ShoutLimitStore getShoutLimitStore() {
+        return shoutLimitStore;
+    }
+
+    private void reloadRedisServices() {
+        closeRedisServices();
+        final EssentialsRedisConfig redisConfig = EssentialsRedisConfig.load(this);
+        if (!redisConfig.isAvailable()) {
+            shoutLimitStore = null;
+            redisManager = null;
+            getLogger().warning("Redis is disabled or missing a URI. Redis-backed Essentials features will use local fallbacks where available.");
+            return;
+        }
+
+        try {
+            redisManager = new RedisManager(redisConfig);
+            shoutLimitStore = new RedisShoutLimitStore(redisManager);
+            getLogger().info("Connected to Redis for Essentials feature sync.");
+        } catch (final RuntimeException ex) {
+            redisManager = null;
+            shoutLimitStore = null;
+            getLogger().warning("Failed to connect to Redis for Essentials feature sync: " + ex.getMessage());
+        }
+    }
+
+    private void closeRedisServices() {
+        try {
+            if (shoutLimitStore != null) {
+                shoutLimitStore.close();
+            }
+            if (redisManager != null) {
+                redisManager.close();
+            }
+        } catch (final RuntimeException ex) {
+            getLogger().warning("Failed to close Redis services: " + ex.getMessage());
+        } finally {
+            shoutLimitStore = null;
+            redisManager = null;
+        }
+    }
+
+    private void saveResourceIfMissing(final String resourcePath) {
+        final File target = new File(getDataFolder(), resourcePath);
+        if (!target.exists()) {
+            saveResource(resourcePath, false);
+        }
     }
 
     private void initAdventureFacet() {

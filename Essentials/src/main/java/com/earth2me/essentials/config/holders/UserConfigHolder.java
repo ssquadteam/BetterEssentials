@@ -459,6 +459,20 @@ public class UserConfigHolder {
         }
 
         @DeleteOnEmpty
+        private @MonotonicNonNull List<Long> mediaShouts;
+
+        public List<Long> mediaShouts() {
+            if (this.mediaShouts == null) {
+                this.mediaShouts = new ArrayList<>();
+            }
+            return this.mediaShouts;
+        }
+
+        public void mediaShouts(final List<Long> value) {
+            this.mediaShouts = value;
+        }
+
+        @DeleteOnEmpty
         @DeleteIfIncomplete
         private @MonotonicNonNull List<CommandCooldown> commandCooldowns;
 
