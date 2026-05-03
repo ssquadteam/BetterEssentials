@@ -24,6 +24,8 @@ import org.bukkit.Color;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.command.Command;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.event.EventPriority;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
@@ -370,15 +372,40 @@ public class Settings implements net.ess3.api.ISettings {
 
     private Set<String> _getDisabledCommands() {
         final Set<String> disCommands = new HashSet<>();
+        final boolean crossServerTpoConfigured = isCrossServerTpoConfigured();
         for (final String c : config.getList("disabled-commands", String.class)) {
-            disCommands.add(c.toLowerCase(Locale.ENGLISH));
+            final String command = c.toLowerCase(Locale.ENGLISH);
+            if (crossServerTpoConfigured && command.equals("tpo")) {
+                continue;
+            }
+            disCommands.add(command);
         }
         for (final String c : config.getKeys()) {
             if (c.startsWith("disable-")) {
-                disCommands.add(c.substring(8).toLowerCase(Locale.ENGLISH));
+                final String command = c.substring(8).toLowerCase(Locale.ENGLISH);
+                if (crossServerTpoConfigured && command.equals("tpo")) {
+                    continue;
+                }
+                disCommands.add(command);
             }
         }
         return disCommands;
+    }
+
+    private boolean isCrossServerTpoConfigured() {
+        final String configServerId = config.getString("redis.server-id", "");
+        if (configServerId != null && !configServerId.trim().isEmpty()) {
+            return true;
+        }
+
+        final File credentialsFile = new File(ess.getDataFolder(), "credentials.yml");
+        if (!credentialsFile.isFile()) {
+            return false;
+        }
+
+        final FileConfiguration credentials = YamlConfiguration.loadConfiguration(credentialsFile);
+        final String credentialsServerId = credentials.getString("redis.server-id", "");
+        return credentialsServerId != null && !credentialsServerId.trim().isEmpty();
     }
 
     private List<String> _getPlayerCommands() {

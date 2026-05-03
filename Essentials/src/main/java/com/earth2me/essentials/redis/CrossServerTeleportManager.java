@@ -42,6 +42,7 @@ public final class CrossServerTeleportManager implements Listener, AutoCloseable
     private static final String TYPE_TRANSFER = "TRANSFER";
     private static final String MODE_SELF_TO_PLAYER = "SELF_TO_PLAYER";
     private static final String MODE_PLAYER_TO_PLAYER = "PLAYER_TO_PLAYER";
+    private static final String INITIATOR_LABEL = "TPO";
     private static final long PLAYER_TTL_SECONDS = 30;
     private static final long PENDING_TTL_SECONDS = 60;
 
@@ -75,7 +76,7 @@ public final class CrossServerTeleportManager implements Listener, AutoCloseable
             return false;
         }
 
-        storePendingTeleport(user.getUUID(), destination.getUuid(), user.getDisplayName(), MODE_SELF_TO_PLAYER)
+        storePendingTeleport(user.getUUID(), destination.getUuid(), INITIATOR_LABEL, MODE_SELF_TO_PLAYER)
                 .thenRun(() -> plugin.scheduleEntityDelayedTask(user.getBase(), () -> transferPlayer(user.getBase(), destination.getServerId())))
                 .exceptionally(ex -> {
                     logRedisFailure("store cross-server /tpo request", ex);
@@ -91,7 +92,7 @@ public final class CrossServerTeleportManager implements Listener, AutoCloseable
             return false;
         }
 
-        storePendingTeleport(teleportee.getUUID(), destination.getUuid(), initiator.getDisplayName(), MODE_PLAYER_TO_PLAYER)
+        storePendingTeleport(teleportee.getUUID(), destination.getUuid(), INITIATOR_LABEL, MODE_PLAYER_TO_PLAYER)
                 .thenRun(() -> plugin.scheduleEntityDelayedTask(teleportee.getBase(), () -> transferPlayer(teleportee.getBase(), destination.getServerId())))
                 .exceptionally(ex -> {
                     logRedisFailure("store cross-server /tpo request", ex);
@@ -107,8 +108,8 @@ public final class CrossServerTeleportManager implements Listener, AutoCloseable
             return false;
         }
 
-        storePendingTeleport(teleportee.getUuid(), destination.getUUID(), initiator.getDisplayName(), MODE_PLAYER_TO_PLAYER)
-                .thenRun(() -> publishTransfer(teleportee, serverId, destination.getUUID(), initiator.getDisplayName()))
+        storePendingTeleport(teleportee.getUuid(), destination.getUUID(), INITIATOR_LABEL, MODE_PLAYER_TO_PLAYER)
+                .thenRun(() -> publishTransfer(teleportee, serverId, destination.getUUID(), INITIATOR_LABEL))
                 .exceptionally(ex -> {
                     logRedisFailure("store cross-server /tpo request", ex);
                     plugin.scheduleEntityDelayedTask(initiator.getBase(), () -> initiator.sendTl("playerNotFound"));
@@ -124,13 +125,13 @@ public final class CrossServerTeleportManager implements Listener, AutoCloseable
         }
 
         if (teleportee.getServerId().equals(destination.getServerId())) {
-            publishLocalTeleport(teleportee, destination.getUuid(), initiator.getDisplayName(), MODE_PLAYER_TO_PLAYER);
+            publishLocalTeleport(teleportee, destination.getUuid(), INITIATOR_LABEL, MODE_PLAYER_TO_PLAYER);
             initiator.sendTl("teleporting");
             return true;
         }
 
-        storePendingTeleport(teleportee.getUuid(), destination.getUuid(), initiator.getDisplayName(), MODE_PLAYER_TO_PLAYER)
-                .thenRun(() -> publishTransfer(teleportee, destination.getServerId(), destination.getUuid(), initiator.getDisplayName()))
+        storePendingTeleport(teleportee.getUuid(), destination.getUuid(), INITIATOR_LABEL, MODE_PLAYER_TO_PLAYER)
+                .thenRun(() -> publishTransfer(teleportee, destination.getServerId(), destination.getUuid(), INITIATOR_LABEL))
                 .exceptionally(ex -> {
                     logRedisFailure("store cross-server /tpo request", ex);
                     plugin.scheduleEntityDelayedTask(initiator.getBase(), () -> initiator.sendTl("playerNotFound"));

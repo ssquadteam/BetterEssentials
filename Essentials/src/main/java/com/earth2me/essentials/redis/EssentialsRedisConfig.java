@@ -28,11 +28,15 @@ public final class EssentialsRedisConfig {
             redisUri = config.getString("redis.uri", "");
         }
 
+        final boolean redisEnabled = credentials.contains("redis.enabled")
+                ? credentials.getBoolean("redis.enabled", true)
+                : config.getBoolean("redis.enabled", true);
+
         return new EssentialsRedisConfig(
-                config.getBoolean("redis.enabled", true),
+                redisEnabled,
                 trim(redisUri),
-                nonBlank(config.getString("redis.key-prefix"), "essentials:"),
-                trim(config.getString("redis.server-id")));
+                nonBlank(firstNonBlank(credentials.getString("redis.key-prefix"), config.getString("redis.key-prefix")), "essentials:"),
+                trim(firstNonBlank(credentials.getString("redis.server-id"), config.getString("redis.server-id"))));
     }
 
     public boolean isAvailable() {
@@ -58,6 +62,10 @@ public final class EssentialsRedisConfig {
     private static String nonBlank(final String value, final String fallback) {
         final String trimmed = trim(value);
         return trimmed.isEmpty() ? fallback : trimmed;
+    }
+
+    private static String firstNonBlank(final String first, final String second) {
+        return isBlank(first) ? second : first;
     }
 
     private static String trim(final String value) {
