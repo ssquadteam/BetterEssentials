@@ -416,6 +416,10 @@ commands:
     description: Views the server rules.
     usage: /<command> [chapter] [page]
     aliases: [erules]
+  lastseen:
+    description: Shows the last login time of a player.
+    usage: /<command> <playername>
+    aliases: [elastseen]
   seen:
     description: Shows the last logout time of a player.
     usage: /<command> <playername>
@@ -1159,6 +1163,8 @@ permissions:
     description: Allows access to the /rest command for other players
   essentials.rules:
     description: Allows access to the /rules command
+  essentials.lastseen:
+    description: Allows access to the /lastseen command
   essentials.seen:
     description: Allows access to the /seen command
   essentials.seen.banreason:

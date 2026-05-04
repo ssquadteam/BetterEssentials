@@ -41,6 +41,7 @@ import com.earth2me.essentials.perm.PermissionsDefaults;
 import com.earth2me.essentials.perm.PermissionsHandler;
 import com.earth2me.essentials.redis.CrossServerTeleportManager;
 import com.earth2me.essentials.redis.EssentialsRedisConfig;
+import com.earth2me.essentials.redis.RedisLastSeenStore;
 import com.earth2me.essentials.redis.RedisManager;
 import com.earth2me.essentials.redis.RedisShoutLimitStore;
 import com.earth2me.essentials.redis.ShoutLimitStore;
@@ -199,6 +200,7 @@ public class Essentials extends JavaPlugin implements net.ess3.api.IEssentials {
     private transient RedisManager redisManager;
     private transient CrossServerTeleportManager crossServerTeleportManager;
     private transient ShoutLimitStore shoutLimitStore;
+    private transient RedisLastSeenStore lastSeenStore;
 
     static {
         EconomyLayers.init();
@@ -638,6 +640,10 @@ public class Essentials extends JavaPlugin implements net.ess3.api.IEssentials {
         return shoutLimitStore;
     }
 
+    public RedisLastSeenStore getLastSeenStore() {
+        return lastSeenStore;
+    }
+
     public CrossServerTeleportManager getCrossServerTeleportManager() {
         return crossServerTeleportManager;
     }
@@ -647,6 +653,7 @@ public class Essentials extends JavaPlugin implements net.ess3.api.IEssentials {
         final EssentialsRedisConfig redisConfig = EssentialsRedisConfig.load(this);
         if (!redisConfig.isAvailable()) {
             shoutLimitStore = null;
+            lastSeenStore = null;
             redisManager = null;
             crossServerTeleportManager = null;
             getLogger().warning("Redis is disabled or missing a URI. Redis-backed Essentials features will use local fallbacks where available.");
@@ -656,6 +663,7 @@ public class Essentials extends JavaPlugin implements net.ess3.api.IEssentials {
         try {
             redisManager = new RedisManager(redisConfig);
             shoutLimitStore = new RedisShoutLimitStore(redisManager);
+            lastSeenStore = new RedisLastSeenStore(redisManager);
             if (redisConfig.hasServerId()) {
                 crossServerTeleportManager = new CrossServerTeleportManager(this, redisManager);
                 crossServerTeleportManager.start();
@@ -663,20 +671,48 @@ public class Essentials extends JavaPlugin implements net.ess3.api.IEssentials {
                 crossServerTeleportManager = null;
                 getLogger().warning("Cross-server /tpo is disabled because redis.server-id is not set.");
             }
+            runTaskAsynchronously(this::publishExistingLastSeenData);
             getLogger().info("Connected to Redis for Essentials feature sync.");
         } catch (final RuntimeException ex) {
             closeRedisServices();
             redisManager = null;
             crossServerTeleportManager = null;
             shoutLimitStore = null;
+            lastSeenStore = null;
             getLogger().warning("Failed to connect to Redis for Essentials feature sync: " + ex.getMessage());
         }
+    }
+
+    private void publishExistingLastSeenData() {
+        final RedisLastSeenStore store = lastSeenStore;
+        if (store == null) {
+            return;
+        }
+
+        int queued = 0;
+        for (final UUID uuid : getUsers().getAllUserUUIDs()) {
+            final User user = getUsers().loadUncachedUser(uuid);
+            if (user == null || user.getLastLogin() <= 0) {
+                continue;
+            }
+
+            queued++;
+            store.recordLogin(user, user.getLastLogin(), user.getName()).exceptionally(ex -> {
+                getLogger().warning("Failed to sync Redis last login for " + user.getName() + ": " + ex.getMessage());
+                return null;
+            });
+        }
+
+        getLogger().info("Queued Redis last login sync for " + queued + " Essentials users.");
     }
 
     private void closeRedisServices() {
         try {
             if (shoutLimitStore != null) {
                 shoutLimitStore.close();
+            }
+            if (lastSeenStore != null) {
+                lastSeenStore.close();
             }
             if (crossServerTeleportManager != null) {
                 crossServerTeleportManager.close();
@@ -688,6 +724,7 @@ public class Essentials extends JavaPlugin implements net.ess3.api.IEssentials {
             getLogger().warning("Failed to close Redis services: " + ex.getMessage());
         } finally {
             shoutLimitStore = null;
+            lastSeenStore = null;
             crossServerTeleportManager = null;
             redisManager = null;
         }

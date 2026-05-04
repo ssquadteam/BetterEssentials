@@ -438,6 +438,7 @@ public class EssentialsPlayerListener implements Listener {
         user.setLastAccountName(user.getBase().getName());
         user.setLastLogin(currentTime);
         user.setDisplayNick();
+        recordRedisLastLogin(user, currentTime);
         updateCompass(user);
         user.setLeavingHidden(false);
 
@@ -623,6 +624,22 @@ public class EssentialsPlayerListener implements Listener {
                     ess.getServer().broadcastMessage(msg);
                 }
             });
+        });
+    }
+
+    private void recordRedisLastLogin(final User user, final long currentTime) {
+        if (!(ess instanceof Essentials)) {
+            return;
+        }
+
+        final Essentials plugin = (Essentials) ess;
+        if (plugin.getLastSeenStore() == null) {
+            return;
+        }
+
+        plugin.getLastSeenStore().recordLogin(user, currentTime).exceptionally(ex -> {
+            plugin.getLogger().warning("Failed to record Redis last login for " + user.getName() + ": " + ex.getMessage());
+            return null;
         });
     }
 
